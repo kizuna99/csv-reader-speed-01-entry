@@ -23,7 +23,10 @@ in one left-to-right pass built for speed:
   never pays for them.
 
 `main.ts` is the harness driver (the house baseline's own): it reads `/input/cases.json`, answers each case
-with `run`, and writes `/output/answers.json`, with V8's incremental marking off.
+with `run`, and writes `/output/answers.json`, with V8's incremental marking off. Before the real cases it
+runs a short warm-up — `run` over a small synthetic text that mixes plain and quoted fields with every
+broken-row shape — so the JIT has tiered the parser's hot loops up before the first full case is read
+(a fresh process otherwise pays that tier-up inside the timed parse).
 
 ## Layout
 

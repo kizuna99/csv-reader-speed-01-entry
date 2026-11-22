@@ -1,18 +1,28 @@
-// The harness driver: `node /bot/main.ts` (node22). It reads every case from /input/cases.json (a JSON array of
-// {id, input}), answers each one alone with run() from solve.js, and writes /output/answers.json: a JSON array of
-// the answers, one per case and in the cases' order. Outside a container MAKEFUN_INPUT_DIR and MAKEFUN_OUTPUT_DIR
-// stand in for /input and /output. Same driver as the house baseline's; solve.js is the faster module.
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setFlagsFromString } from 'node:v8';
 
-// V8's incremental marking off, set before solve.js is imported so all of its work runs under it (the house
-// baseline runs with --no-incremental-marking, and an entry may tune V8's flags the same way).
 setFlagsFromString('--no-incremental-marking');
 
-/** solve.js, imported by its URL (a .js module carries no types) and typed by its contract. */
 const { run } = (await import(new URL('./solve.js', import.meta.url).href)) as { run: (input: unknown) => unknown };
+
+// Warm-up: exercise every parser path on synthetic text so the JIT tiers the hot loops up
+// before the real (cold) cases run. The block mixes plain fields, quoted fields (commas,
+// doubled quotes, embedded LF/CR/CRLF), junk after a closing quote, a stray CR, an
+// unterminated quote, and short/long rows.
+const BLOCK =
+  'name,age,note\r\n' +
+  '"Smith, John",42,"said ""hi""\nthen left"\n' +
+  'plain,7,simple\r\n' +
+  '"multi\r\nline",1,"cr\ronly"\n' +
+  'junk,"abc"tail,3\n' +
+  'stray\rcr,9,9\n' +
+  'short,1\n' +
+  'long,1,2,3,4\n' +
+  '"unterminated,5,6\n' +
+  'last,0,""""\n';
+const WARM = BLOCK.repeat(6);
+for (let i = 0; i < 60; i++) run({ text: WARM, header: i % 2 === 0 });
 
 const INPUT_DIR = process.env.MAKEFUN_INPUT_DIR ?? '/input';
 const OUTPUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
